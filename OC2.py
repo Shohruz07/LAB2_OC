@@ -88,7 +88,7 @@ def main():
         print(f"Ошибка при связывании или прослушивании сокета: {e}", file=sys.stderr)
         return 1
     # Устанавливаем обработчик сигнала
-   # signal.signal(signal.SIGINT, SignalHangUpHandler)
+    signal.signal(signal.SIGINT, SignalHangUpHandler)
     # Выводим сообщение о том, что сервер запущен и ожидает подключений
     print("Сервер запущен и ожидает подключений")
     # Запускаем бесконечный цикл для принятия новых соединений
