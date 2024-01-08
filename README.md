@@ -6,7 +6,9 @@
 #"
 FOR RUN
 >>gcc -o server OC2.c
+
 >>./server
+
 >>telnet localhost 8080
 
 
