@@ -66,17 +66,55 @@ int main() { // Определяем главную функцию
             exit(0); // Выходим из программы со статусом успеха
         }
 
-FDSET(serversocket, &readfds); // Добавляем сокет сервера в набор файловых дескрипторов
+FD_SET(server_socket, &read_fds); // Добавляем сокет сервера в набор файловых дескрипторов
 
         struct timespec timeout; // Объявляем структуру для хранения значения таймаута
-        timeout.tvsec = 1; // Устанавливаем таймаут на 1 секунду
-        timeout.tvnsec = 0; // Устанавливаем наносекунды в 0
+        timeout.tv_sec = 1; // Устанавливаем таймаут на 1 секунду
+        timeout.tv_nsec = 0; // Устанавливаем наносекунды в 0
         
-        sigsett mask; // Объявляем набор сигналов для хранения сигналов для блокировки
+        sigset_t mask; // Объявляем набор сигналов для хранения сигналов для блокировки
     // Вызов функции pselect, чтобы отслеживать набор файловых дескрипторов для чтения и сохранять результа
         int result = pselect(serversocket + 1, &readfds, NULL, NULL, &timeout, &mask); 
         
         if (result == -1) { // Если результат равен -1, это указывает на ошибку
             if (errno == EINTR) { // Если ошибка вызвана прерванным системным вызовом
                 printf("'pselect' was interrupted by a signal.\n"); // pselect был прерван
+                continue;
+            } else {
+                perror("Error in pselect");
+                break;// Разрыв цикла
+            }
+        }
+
+        if (FD_ISSET(server_socket, &read_fds)) {// Если сокет сервера готов к чтению, что указывает на входящее соединение
+            // принимаем соединение и сохраняем дескриптор сокета клиента, а также проверяем наличие ошибок
+            if ((client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_len)) == -1) {
+                perror("Error accepting connection");
+                continue;
+            }
+            // Распечатываем адрес клиента и номер порта
+            printf("Accepted connection from %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+
+            if (g_accepted_socket == -1) {// Если принятого сокета нет
+                g_accepted_socket = client_socket;// Устанавливаем глобальную переменную в клиентский сокет
+            } else {
+                close(client_socket);// Закрываем клиентский сокет
+            }
+        }
+    // Получаем данные из принятого сокета и сохраняем количество полученных байтов
+        size_t bytes_received = recv(g_accepted_socket, buffer, sizeof(buffer), 0);
+        if (bytes_received > 0) { // Если количество полученных байт положительное
+            buffer[bytes_received] = '\0'; // Добавляем нулевой терминатор в буфер
+            printf("Received %ld bytes: %s\n", bytes_received, buffer);// Выводим количество байт и полученные данные
+        } else if (bytes_received == 0) { // Если количество полученных байтов равно нулю, это означает, что соединение закрыто
+            printf("Connection closed by client.\n");
+            close(g_accepted_socket);// Закрываем принятый сокет
+            g_accepted_socket = -1; // Устанавливаем глобальную переменную в -1
+        } 
+        else { // В противном случае, что указывает на ошибку
+            perror("Error receiving data");
+        }
+    }
+    return 0; // Возвращаем 0, чтобы указать на успех
+}
          
